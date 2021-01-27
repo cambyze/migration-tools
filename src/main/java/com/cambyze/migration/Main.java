@@ -8,12 +8,53 @@ import java.util.Scanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Migration tools
+ * 
+ * @author Thierry NESTELHUT
+ *
+ */
 public class Main {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
   private static final String DIRECTORY = "C:/DEV/Projects/Logs";
 
+  /**
+   * Retrieve the parameter just after the n occurrence of the label and before the next blank " "
+   * 
+   * @param text to analyse
+   * @param label to find
+   * @param occurrence nb of occurrence of the label
+   * @return the parameter else empty string
+   */
+  private static String getParameter(String text, String label, int occurrence) {
+    String result = "";
+    String temp = text;
+    int pos = 0;
 
+    for (int i = 1; i <= occurrence; i++) {
+      pos = temp.indexOf(label);
+      if (pos > 0) {
+        temp = temp.substring(pos + label.length());
+      }
+    }
+
+    int pos2 = temp.indexOf(" ");
+    if (pos2 > 0) {
+      result = temp.substring(0, pos2);
+    } else {
+      result = temp;
+    }
+
+    return result;
+
+  }
+
+  /**
+   * Analysis of log files to find which programs are launched
+   * 
+   * @param args
+   */
   public static void main(String[] args) {
     LOGGER.info("Files .o analysis in the directory " + DIRECTORY);
 
@@ -31,7 +72,7 @@ public class Main {
       PrintWriter csvfile = new PrintWriter(DIRECTORY + "/analysis.csv");
       PrintWriter logfile = new PrintWriter(DIRECTORY + "/analysis.log");
       PrintWriter excludedfile = new PrintWriter(DIRECTORY + "/excludedfile.log");
-      csvfile.println("Filename;Date;Time;Program;Company;Parameters;Line");
+      csvfile.println("Filename;Date;Time;Program;Company;Info;Function;Parameters;Line");
       // filter files with extension *.o
       File[] files = directory.listFiles(new FileFilter() {
         public boolean accept(File pathname) {
@@ -50,6 +91,8 @@ public class Main {
         String parameters = "";
         String parametersLine = "";
         String company = "";
+        String info = "";
+        String functionId = "";
         readfiles++;
         Scanner s = new Scanner(file);
         while (s.hasNextLine()) {
@@ -64,15 +107,6 @@ public class Main {
           } else if (line.contains("liste de param :")) {
             findExpression = true;
             fileTime = line.substring(0, 7);
-            String upperLine = line.toUpperCase();
-            int pos = upperLine.indexOf("XPRODLR5 ");
-            if (pos > 0) {
-              parameters = line.substring(pos + 9);
-              int pos2 = parameters.indexOf(" ");
-              if (pos2 > 0) {
-                programName = parameters.substring(0, pos2);
-              }
-            }
             if (line.indexOf(" ETA ") > 0) {
               company = "ETA";
             } else if (line.indexOf(" UNI ") > 0) {
@@ -83,6 +117,44 @@ public class Main {
               company = "UCB-ESP";
             }
             parametersLine = line;
+
+            String upperLine = line.toUpperCase();
+            int pos = upperLine.indexOf("XPRODLR5 ");
+            if (pos > 0) {
+              parameters = line.substring(pos + 9);
+              functionId = getParameter(parameters, "EUR ", 1);
+              int pos2 = parameters.indexOf(" ");
+              if (pos2 > 0) {
+                programName = parameters.substring(0, pos2);
+                switch (programName) {
+                  case "CPT171":
+                    // Retrieve the parameter date
+                    info = "Parameter Date = " + '"' + getParameter(parameters, "@@@", 1) + '"';
+                    break;
+                  case "CPTFLX":
+                  case "CPT369":
+                    // Retrieve function id
+                    info = "Function id = " + '"' + functionId + '"';
+                    break;
+                  case "FLX013":
+                    // Retrieve function id & payment mode
+                    info = "Function id = " + '"' + functionId + '"' + " & payment mode = "
+                        + getParameter(parameters, "EUR ", 2);
+                    break;
+                  case "FLX018":
+                    // Retrieve function id & campaign type
+                    info = "Function id = " + '"' + functionId + '"' + " & campaign type = "
+                        + getParameter(parameters, company + " ", 2);
+                    break;
+                  case "DOC001":
+                    // Retrieve document name
+                    info =
+                        "Document name = " + '"' + getParameter(parameters, "BATCDOCADM ", 1) + '"';
+                    break;
+                }
+
+              }
+            }
           }
         }
         s.close();
@@ -90,7 +162,7 @@ public class Main {
         if (findExpression) {
           msg = "+++++++++++++++++++++++ " + file.getName() + " contains requested expressions";
           csvfile.println(file.getName() + ";" + fileDate + ";" + fileTime + ";" + programName + ";"
-              + company + ";" + parameters + ";" + parametersLine);
+              + company + ";" + info + ";" + functionId + ";" + parameters + ";" + parametersLine);
           okfiles++;
 
         } else {
@@ -126,4 +198,5 @@ public class Main {
       LOGGER.error(e.toString());
     }
   }
+
 }
