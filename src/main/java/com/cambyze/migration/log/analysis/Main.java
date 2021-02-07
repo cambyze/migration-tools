@@ -1,4 +1,4 @@
-package com.cambyze.migration;
+package com.cambyze.migration.log.analysis;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Migration tools
+ * <p>
+ * Log files analysis to determine launched batch
  * 
  * @author Thierry NESTELHUT
  *
