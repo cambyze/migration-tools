@@ -369,8 +369,8 @@ public class Main {
           String packageName = formsName + "_0TNE";
           writeSqlFile(packageName, form);
           cmdfile.println("@" + packageName + ".sql");
-          dropfile.println("drop package body " + packageName);
-          dropfile.println("drop package " + packageName);
+          dropfile.println("drop package body " + packageName + ';');
+          dropfile.println("drop package " + packageName + ';');
           msg = "End of creation of the sql file for the package " + packageName;
           LOGGER.info(msg);
           logfile.println(msg);
