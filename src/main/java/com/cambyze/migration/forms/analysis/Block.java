@@ -8,12 +8,14 @@ public class Block {
   private String name;
   private String table;
   private List<Trigger> triggers;
+  private List<Element> elements;
 
   public Block(String name) {
     super();
     this.name = name;
     this.table = "";
     this.triggers = new ArrayList<Trigger>();
+    this.elements = new ArrayList<Element>();
   }
 
   public String getName() {
@@ -40,9 +42,18 @@ public class Block {
     this.triggers = triggers;
   }
 
+  public List<Element> getElements() {
+    return elements;
+  }
+
+  public void setElements(List<Element> elements) {
+    this.elements = elements;
+  }
+
   @Override
   public String toString() {
-    return "Block [name=" + name + ", table=" + table + ", " + triggers.size() + " triggers]";
+    return "Block [name=" + name + ", table=" + table + ", " + triggers.size() + " triggers, "
+        + elements.size() + " elements]";
   }
 
 

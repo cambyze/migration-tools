@@ -8,12 +8,14 @@ public class Form {
   private String name;
   private List<Trigger> triggers;
   private List<Block> blocks;
+  private List<Procedure> procedures;
 
   public Form(String name) {
     super();
     this.name = name;
     this.triggers = new ArrayList<Trigger>();
     this.blocks = new ArrayList<Block>();
+    this.procedures = new ArrayList<Procedure>();
   }
 
   public String getName() {
@@ -40,9 +42,18 @@ public class Form {
     this.blocks = blocks;
   }
 
+  public List<Procedure> getProcedures() {
+    return procedures;
+  }
+
+  public void setProcedures(List<Procedure> procedures) {
+    this.procedures = procedures;
+  }
+
   @Override
   public String toString() {
-    return "Form [name=" + name + ", " + triggers.size() + " triggers, blocks " + blocks + "]";
+    return "Form [name=" + name + ", " + triggers.size() + " triggers, blocks=" + blocks
+        + ", procedures=" + procedures + "]";
   }
 
 }

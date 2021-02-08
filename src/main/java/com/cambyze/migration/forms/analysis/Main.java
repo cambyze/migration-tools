@@ -41,6 +41,173 @@ public class Main {
   }
 
   /**
+   * Write a SQL file to create the package
+   * 
+   * @param packageName name of the package
+   * @param form structure of the form with its PL/SQL code
+   * @throws IOException
+   */
+  private static void writeSqlFile(String packageName, Form form) throws IOException {
+    PrintWriter sqlfile = new PrintWriter(DIRECTORY + "/sql/" + packageName + ".sql");
+
+    // Package creation with the procedures declaration
+    sqlfile.println("CREATE OR REPLACE PACKAGE " + packageName + " AS ");
+    sqlfile.println();
+    parseForm(form, sqlfile, false);
+    sqlfile.println();
+    sqlfile.println("END " + packageName + ";");
+    sqlfile.println("/");
+    sqlfile.println();
+
+    // Package body creation with the procedures code
+    sqlfile.println("CREATE OR REPLACE PACKAGE BODY " + packageName + " AS ");
+    sqlfile.println();
+    parseForm(form, sqlfile, true);
+    sqlfile.println();
+    sqlfile.println("END " + packageName + ";");
+    sqlfile.println("/");
+    sqlfile.println();
+    sqlfile.close();
+  }
+
+  /**
+   * Write the content of the package or package body by parsing the form
+   * 
+   * @param form form to parse
+   * @param sqlfile SQL file to write
+   * @param isPackageBody indicates if it is the package body to write
+   */
+  private static void parseForm(Form form, PrintWriter sqlfile, boolean isPackageBody) {
+
+    // Write form triggers
+    sqlfile.println("-- Form triggers");
+    for (Trigger trigger : form.getTriggers()) {
+      String name = "TFM_" + trigger.getName().replace('-', '_');
+      if (name.length() > 30) {
+        name = name.substring(0, 30);
+      }
+      if (!isPackageBody) {
+        sqlfile.println("PROCEDURE " + name + ";");
+      } else {
+        sqlfile.println("PROCEDURE " + name + " IS");
+        sqlfile.println("  -- " + trigger.getName());
+        sqlfile.println("  BEGIN");
+        for (String line : trigger.getCode()) {
+          sqlfile.println("    " + line);
+        }
+        sqlfile.println("  END;");
+        sqlfile.println();
+      }
+    }
+    sqlfile.println();
+
+    // Write blocks
+    int blockNumber = 0;
+    sqlfile.println("-- Blocks");
+    for (Block block : form.getBlocks()) {
+      blockNumber++;
+      String name = block.getName().replace('-', '_');
+      if (name.length() > 30) {
+        name = name.substring(0, 30);
+      }
+      if (!isPackageBody) {
+        sqlfile.println("PROCEDURE BK" + blockNumber + "_" + name + ";");
+
+        // block triggers
+        for (Trigger trigger : block.getTriggers()) {
+          String triggerName = "TB" + blockNumber + "_" + trigger.getName().replace('-', '_');
+          if (triggerName.length() > 30) {
+            triggerName = triggerName.substring(0, 30);
+          }
+          sqlfile.println("PROCEDURE " + triggerName + ";");
+        }
+
+        // Block elements
+        for (Element element : block.getElements()) {
+          String elementName = element.getName().replace('-', '_');
+          int i = 0;
+          // Elements triggers
+          for (Trigger trigger : element.getTriggers()) {
+            i++;
+            String triggerName = "TE" + blockNumber + "_" + elementName;
+            if (triggerName.length() > 28) {
+              triggerName = triggerName.substring(0, 28);
+            }
+            triggerName = triggerName + '#' + i;
+            sqlfile.println("PROCEDURE " + triggerName + ";");
+          }
+        }
+      } else {
+        sqlfile.println("PROCEDURE BK" + blockNumber + "_" + name + " IS");
+        sqlfile.println("  BEGIN");
+        sqlfile.println("  -- block name = " + block.getName());
+        sqlfile.println("  -- table name = " + block.getTable());
+        for (Element element : block.getElements()) {
+          sqlfile.println("  -- element : " + element.getName());
+        }
+        sqlfile.println("  END;");
+        sqlfile.println();
+
+        // Block triggers
+        for (Trigger trigger : block.getTriggers()) {
+          String triggerName = "TB" + blockNumber + "_" + trigger.getName().replace('-', '_');
+          if (triggerName.length() > 30) {
+            triggerName = triggerName.substring(0, 30);
+          }
+          sqlfile.println("PROCEDURE " + triggerName + " IS");
+          sqlfile.println("  -- " + block.getName() + '.' + trigger.getName());
+          sqlfile.println("  BEGIN");
+          for (String line : trigger.getCode()) {
+            sqlfile.println("    " + line);
+          }
+          sqlfile.println("  END;");
+          sqlfile.println();
+        }
+
+        // Block elements
+        for (Element element : block.getElements()) {
+          String elementName = element.getName().replace('-', '_');
+          int i = 0;
+          // Elements triggers
+          for (Trigger trigger : element.getTriggers()) {
+            i++;
+            String triggerName = "TE" + blockNumber + "_" + elementName;
+            if (triggerName.length() > 28) {
+              triggerName = triggerName.substring(0, 28);
+            }
+            triggerName = triggerName + '#' + i;
+            sqlfile.println("PROCEDURE " + triggerName + " IS");
+            sqlfile.println(
+                "  -- " + block.getName() + "." + element.getName() + '.' + trigger.getName());
+            sqlfile.println("  BEGIN");
+            for (String line : trigger.getCode()) {
+              sqlfile.println("    " + line);
+            }
+            sqlfile.println("  END;");
+            sqlfile.println();
+          }
+        }
+      }
+      sqlfile.println();
+    }
+
+    // Write form procedures
+    sqlfile.println("-- Procedures");
+    for (Procedure procedure : form.getProcedures()) {
+      String name = procedure.getName().replace('-', '_');
+      if (!isPackageBody) {
+        sqlfile.println("PROCEDURE " + name + ";");
+      } else {
+        for (String line : procedure.getCode()) {
+          sqlfile.println("    " + line);
+        }
+        sqlfile.println();
+      }
+    }
+
+  }
+
+  /**
    * Analysis of converted forms files to find which PL/SQL code is executed
    * 
    * @param args
@@ -73,8 +240,13 @@ public class Main {
         Form form = null;
         Trigger trigger = null;
         Block block = null;
+        Element element = null;
+        Procedure procedure = null;
         LOGGER.info("Analysis of the txt file " + file.getName());
         boolean isFormNameFound = false;
+        boolean isFormData = false;
+        boolean isBlockData = false;
+        boolean isElementData = false;
         String formsName = "";
         String step = "";
         String objectName = "";
@@ -88,6 +260,9 @@ public class Main {
               formsName = lastString(line);
               if (!formsName.isEmpty()) {
                 isFormNameFound = true;
+                isFormData = true;
+                isBlockData = false;
+                isElementData = false;
                 readforms++;
                 step = "SEARCH_OBJECTS";
                 logfile.println("Analysis of " + formsName);
@@ -97,24 +272,48 @@ public class Main {
           } else {
             switch (step) {
               case "SEARCH_OBJECTS":
-                // Search object name : form triggers, blocks or procedures
-                if (line.startsWith("   * Nom                ")) {
+                if (line.contains(" Nom                ")) {
+                  // Search object name
                   objectName = lastString(line);
                   step = "SEARCH_OBJECT_TYPE";
                 }
                 break;
               case "SEARCH_OBJECT_TYPE":
-                // Search object type : forms triggers, blocks or procedures
+                // Search object type : trigger, block, element or procedure
                 if (line.contains(" Texte du déclencheur  ")) {
                   trigger = new Trigger(objectName);
-                  form.getTriggers().add(trigger);
+                  if (isFormData) {
+                    form.getTriggers().add(trigger);
+                  } else if (isBlockData) {
+                    block.getTriggers().add(trigger);
+                  } else if (isElementData) {
+                    element.getTriggers().add(trigger);
+                  }
                   step = "TRIGGER_TEXT";
                 } else if (line.contains(" Nom de source de données de requête      ")) {
+                  isFormData = false;
+                  isBlockData = true;
+                  isElementData = false;
                   block = new Block(objectName);
                   block.setTable(lastString(line));
                   form.getBlocks().add(block);
-                  step = "SEARCH_OBJECT_TYPE";
-                } else if (line.startsWith("   * Nom                ")) {
+                  step = "SEARCH_OBJECTS";
+                } else if (line.contains(" Type d'élément                           ")) {
+                  isFormData = false;
+                  isBlockData = false;
+                  isElementData = true;
+                  element = new Element(objectName);
+                  block.getElements().add(element);
+                  step = "SEARCH_OBJECTS";
+                } else if (line.contains(" Texte d'unité de programme                    ")) {
+                  isFormData = true;
+                  isBlockData = false;
+                  isElementData = false;
+                  procedure = new Procedure(objectName);
+                  form.getProcedures().add(procedure);
+                  step = "PROCEDURE_TEXT";
+                } else if (line.contains(" Nom                ")) {
+                  // The previous object does not need to be analysed
                   objectName = lastString(line);
                   step = "SEARCH_OBJECT_TYPE";
                 }
@@ -122,9 +321,17 @@ public class Main {
               case "TRIGGER_TEXT":
                 // within the code of the trigger
                 if (line.contains(" Activer en mode Saisie Requête  ")) {
-                  step = "SEARCH_OBJECT_TYPE";
+                  step = "SEARCH_OBJECTS";
                 } else {
                   trigger.getCode().add(line);
+                }
+                break;
+              case "PROCEDURE_TEXT":
+                // within the code of the procedure
+                if (line.contains(" Type d'unité de programme                     ")) {
+                  step = "SEARCH_OBJECTS";
+                } else {
+                  procedure.getCode().add(line);
                 }
                 break;
             }
@@ -136,6 +343,15 @@ public class Main {
           LOGGER.info(msg);
           logfile.println(msg);
           logfile.println(form.toString());
+
+          // Creation of the "name of the form".sql file which contains all the PL/SQL code of the
+          // form
+          String packageName = formsName + "_0TNE";
+          writeSqlFile(packageName, form);
+          msg = "End of creation of the sql file for the package " + packageName;
+          LOGGER.info(msg);
+          logfile.println(msg);
+          logfile.println();
         }
       }
       msg = "End of the analysis of the " + readfiles + " txt files with " + readforms + " forms";
