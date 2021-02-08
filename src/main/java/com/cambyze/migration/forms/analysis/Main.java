@@ -226,7 +226,26 @@ public class Main {
       int readforms = 0;
 
       PrintWriter logfile = new PrintWriter(DIRECTORY + "/forms_analysis.log");
-      // filter files with extension *.o
+
+      PrintWriter cmdfile = new PrintWriter(DIRECTORY + "/sql/run_sql.sql");
+      cmdfile.println("/************************************************/");
+      cmdfile.println("/* Execute sql converted forms files            */");
+      cmdfile.println("/************************************************/");
+      cmdfile.println();
+      cmdfile.println("set serveroutput on size unlimited");
+      cmdfile.println("spool run_sql.log");
+      cmdfile.println();
+
+      PrintWriter dropfile = new PrintWriter(DIRECTORY + "/sql/drop_sql.sql");
+      dropfile.println("/************************************************/");
+      dropfile.println("/* Drop sql converted forms packages            */");
+      dropfile.println("/************************************************/");
+      dropfile.println();
+      dropfile.println("set serveroutput on size unlimited");
+      dropfile.println("spool drop_sql.log");
+      dropfile.println();
+
+      // filter files with extension *.txt
       File[] files = directory.listFiles(new FileFilter() {
         public boolean accept(File pathname) {
           String fileName = pathname.getName();
@@ -338,6 +357,7 @@ public class Main {
           }
         }
         s.close();
+
         if (!formsName.isEmpty() && form != null) {
           msg = "End of the analysis of the form " + formsName;
           LOGGER.info(msg);
@@ -348,6 +368,9 @@ public class Main {
           // form
           String packageName = formsName + "_0TNE";
           writeSqlFile(packageName, form);
+          cmdfile.println("@" + packageName + ".sql");
+          dropfile.println("drop package body " + packageName);
+          dropfile.println("drop package " + packageName);
           msg = "End of creation of the sql file for the package " + packageName;
           LOGGER.info(msg);
           logfile.println(msg);
@@ -358,6 +381,18 @@ public class Main {
       LOGGER.info(msg);
       logfile.println(msg);
       logfile.close();
+
+      cmdfile.println();
+      cmdfile.println("spool off");
+      cmdfile.println();
+      cmdfile.close();
+
+      dropfile.println();
+      dropfile.println("spool off");
+      dropfile.println();
+      dropfile.close();
+
+
     } catch (
 
     IOException e) {
