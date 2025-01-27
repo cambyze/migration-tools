@@ -187,7 +187,7 @@ public class Main {
         logfile.println(msg);
 
       }
-      msg = readfiles + " files read with " + okfiles + " OK and " + nokfiles + " NOK";
+      msg = "Result: " + readfiles + " files read with " + okfiles + " OK and " + nokfiles + " NOK";
       LOGGER.info(msg);
       logfile.println(msg);
       csvfile.close();
